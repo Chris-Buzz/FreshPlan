@@ -130,8 +130,9 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Create a 3-day meal plan (Breakfast, Lunch, Dinner) that uses these ingredients to reduce waste: ${ingredientsList}.
-      If ingredients are missing, assume I will buy them. Provide brief instructions and ingredients list for each recipe so I can cook them.`,
+      contents: `Create a STRICT 3-day meal plan. You MUST provide Breakfast, Lunch, AND Dinner for EVERY single day. Do not skip any meals.
+      Use these ingredients to reduce waste: ${ingredientsList}.
+      If ingredients are missing, assume I will buy them.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -155,7 +156,8 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                           items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
                         },
                         steps: { type: Type.ARRAY, items: { type: Type.STRING } }
-                     }
+                     },
+                     required: ["title", "description", "steps"]
                   },
                   lunch: {
                      type: Type.OBJECT,
@@ -169,7 +171,8 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                           items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
                         },
                         steps: { type: Type.ARRAY, items: { type: Type.STRING } }
-                     }
+                     },
+                     required: ["title", "description", "steps"]
                   },
                   dinner: {
                      type: Type.OBJECT,
@@ -183,11 +186,14 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                           items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
                         },
                         steps: { type: Type.ARRAY, items: { type: Type.STRING } }
-                     }
+                     },
+                     required: ["title", "description", "steps"]
                   },
-                }
+                },
+                required: ["breakfast", "lunch", "dinner"]
               }
-            }
+            },
+            required: ["day", "meals"]
           }
         }
       }

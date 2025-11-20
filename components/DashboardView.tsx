@@ -1,7 +1,8 @@
 import React from 'react';
 import { PantryItem } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
-import { Clock, Leaf, TrendingUp } from 'lucide-react';
+import { Clock, Leaf, TrendingUp, ShoppingBag, ArrowRight } from 'lucide-react';
+import { ESSENTIAL_GROCERIES } from '../constants';
 
 interface DashboardViewProps {
   pantryItems: PantryItem[];
@@ -38,6 +39,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ pantryItems }) => {
     { name: 'Week 3', amount: 160 },
     { name: 'This Week', amount: 90 }
   ];
+
+  // Recommendations for low stock (Get random 5 from essentials)
+  const showRecommendations = pantryItems.length < 5;
+  const essentialRecommendations = ESSENTIAL_GROCERIES.slice(0, 5);
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
@@ -90,10 +95,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ pantryItems }) => {
                             <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                         </PieChart>
                     </ResponsiveContainer>
-                    {/* Center Label */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                         {/* Optional center text could go here */}
-                    </div>
                 </div>
                 <div className="flex justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
@@ -127,6 +128,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ pantryItems }) => {
                 </div>
             </div>
         </div>
+
+        {/* Recommendations Section (If Pantry is Low) */}
+        {showRecommendations && (
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                    <ShoppingBag className="w-6 h-6" />
+                    <h3 className="text-lg font-bold">Pantry Running Low?</h3>
+                </div>
+                <p className="mb-4 opacity-90">Here are some versatile essentials to restock your kitchen:</p>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {essentialRecommendations.map((item) => (
+                        <div key={item.name} className="bg-white/20 backdrop-blur-sm p-3 rounded-lg flex flex-col items-center text-center">
+                            <span className="text-xs uppercase tracking-wider opacity-75 mb-1">{item.category}</span>
+                            <span className="font-semibold">{item.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
 
         {/* Optimization Tip */}
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { PantryItem, Unit } from '../types';
-import { CATEGORIES } from '../constants';
-import { Trash2, Plus, AlertTriangle, ScanLine, Loader2, Camera, Calendar, Edit2 } from 'lucide-react';
+import { CATEGORIES, SAFE_CONSUME_BUFFER } from '../constants';
+import { Trash2, Plus, AlertTriangle, ScanLine, Loader2, Camera, Calendar, CheckCircle2, Info } from 'lucide-react';
 import { fileToGenerativePart, identifyPantryItems } from '../services/geminiService';
 
 interface PantryViewProps {
@@ -35,26 +35,32 @@ const PantryView: React.FC<PantryViewProps> = ({ items, onAddItem, onAddItems, o
     }
   };
 
-  const getDaysUntilExpiry = (dateStr?: string) => {
-    if (!dateStr) return null;
+  const getExpiryStatus = (dateStr?: string, category: string = 'Other') => {
+    if (!dateStr) return { days: null, status: 'unknown', safeUntil: null };
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiry = new Date(dateStr);
     const diffTime = expiry.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  // Simplified status logic for text color only
-  const getStatusColor = (days: number | null) => {
-    if (days === null) return 'text-emerald-600';
-    if (days < 0) return 'text-red-600';
-    if (days <= 3) return 'text-orange-600';
-    return 'text-gray-500';
+    // Calculate safety buffer
+    const bufferDays = SAFE_CONSUME_BUFFER[category] || 7;
+    const safeDate = new Date(expiry);
+    safeDate.setDate(safeDate.getDate() + bufferDays);
+    const safeDiffTime = safeDate.getTime() - today.getTime();
+    const safeDaysLeft = Math.ceil(safeDiffTime / (1000 * 60 * 60 * 24));
+
+    let status = 'good';
+    if (days < 0) status = 'expired';
+    else if (days <= 3) status = 'expiring';
+
+    return { days, status, safeUntil: safeDate.toLocaleDateString(), safeDaysLeft };
   };
 
   const itemsExpiringSoon = items.filter(i => {
-      const days = getDaysUntilExpiry(i.expiryDate);
-      return days !== null && days <= 3 && days >= 0;
+      const { status } = getExpiryStatus(i.expiryDate, i.category);
+      return status === 'expiring' || status === 'expired';
   }).length;
 
   return (
@@ -92,9 +98,9 @@ const PantryView: React.FC<PantryViewProps> = ({ items, onAddItem, onAddItems, o
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-medium text-orange-900">Expiring Soon</h3>
+            <h3 className="font-medium text-orange-900">Items Expiring</h3>
             <p className="text-sm text-orange-700 mt-1">
-              {itemsExpiringSoon} items need to be used within 3 days.
+              {itemsExpiringSoon} items are expired or expiring soon. Check "Safe Until" dates before discarding.
             </p>
           </div>
         </div>
@@ -103,41 +109,69 @@ const PantryView: React.FC<PantryViewProps> = ({ items, onAddItem, onAddItems, o
       {/* Items Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => {
-          const daysLeft = getDaysUntilExpiry(item.expiryDate);
+          const { days, status, safeUntil, safeDaysLeft } = getExpiryStatus(item.expiryDate, item.category);
+          
           return (
-            <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-start gap-3 transition hover:shadow-md">
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
+            <div key={item.id} className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col gap-3 transition hover:shadow-md ${status === 'expired' ? 'border-red-100 bg-red-50/30' : 'border-gray-200'}`}>
+              
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
                     <div className="font-semibold text-lg text-gray-800 line-clamp-1">{item.name}</div>
+                    <div className="text-sm text-gray-500">{item.quantity} {item.unit} • {item.category}</div>
                 </div>
-                <div className="text-sm text-gray-500 mb-3">{item.quantity} {item.unit} • {item.category}</div>
+                 <div className="flex gap-1">
+                     <button 
+                        onClick={() => onRemoveItem(item.id)}
+                        className="p-2 hover:bg-emerald-50 rounded-full transition text-gray-300 hover:text-emerald-600"
+                        title="Mark as Consumed"
+                     >
+                        <CheckCircle2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                        onClick={() => onRemoveItem(item.id)}
+                        className="p-2 hover:bg-red-50 rounded-full transition text-gray-200 hover:text-red-500"
+                        title="Remove Item"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                 </div>
+              </div>
                 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                    <Calendar className={`w-3.5 h-3.5 ${!item.expiryDate ? 'text-emerald-500' : 'text-gray-400'}`} />
-                    <input 
+              {/* Expiry Control */}
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> EXPIRATION
+                      </label>
+                      {days !== null && (
+                          <span className={`text-xs font-bold ${
+                              status === 'expired' ? 'text-red-600' : 
+                              status === 'expiring' ? 'text-orange-500' : 'text-emerald-600'
+                          }`}>
+                              {status === 'expired' ? `${Math.abs(days)} days ago` : `${days} days left`}
+                          </span>
+                      )}
+                  </div>
+                  <input 
                         type="date" 
                         value={item.expiryDate || ''}
                         onChange={(e) => onUpdateItem(item.id, { expiryDate: e.target.value })}
-                        className={`text-xs bg-transparent border-none focus:ring-0 p-0 w-24 cursor-pointer font-medium ${!item.expiryDate ? 'text-emerald-600' : 'text-gray-600'}`}
+                        className="w-full bg-white border border-gray-200 rounded px-2 py-1.5 text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500 outline-none"
                     />
-                  </div>
-                  
-                  <div className={`text-xs font-medium ${getStatusColor(daysLeft)}`}>
-                    {daysLeft === null ? 'Set Expiry' : 
-                     daysLeft < 0 ? `Expired` :
-                     daysLeft === 0 ? 'Today' :
-                     `${daysLeft} days`}
-                  </div>
-                </div>
               </div>
-              <button 
-                onClick={() => onRemoveItem(item.id)}
-                className="p-2 hover:bg-red-50 rounded-full transition shrink-0 group"
-                title="Remove Item"
-              >
-                <Trash2 className="w-4 h-4 text-gray-300 group-hover:text-red-500 transition" />
-              </button>
+
+              {/* Safe Consumption Logic */}
+              {status === 'expired' && safeDaysLeft !== null && (
+                  <div className="flex items-start gap-2 text-xs text-gray-500 bg-white p-2 rounded border border-gray-200">
+                      <Info className="w-4 h-4 text-blue-500 shrink-0" />
+                      <div>
+                          <span className="font-bold text-gray-700">Safe Consumption Tip:</span>
+                          <br />
+                          Usually safe until <span className="font-bold text-gray-800">{safeUntil}</span> ({safeDaysLeft > 0 ? `${safeDaysLeft} days left` : 'past safe date'}).
+                      </div>
+                  </div>
+              )}
             </div>
           );
         })}
