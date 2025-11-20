@@ -11,14 +11,38 @@ type View = 'dashboard' | 'pantry' | 'planner' | 'grocery';
 
 const App = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>(MOCK_PANTRY);
-  const [mealPlan, setMealPlan] = useState<DayPlan[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Handlers to drill down
+  // Initialize from LocalStorage or fallback to MOCK_PANTRY
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>(() => {
+    const saved = localStorage.getItem('freshplan_pantry');
+    return saved ? JSON.parse(saved) : MOCK_PANTRY;
+  });
+
+  // Initialize Meal Plan from LocalStorage
+  const [mealPlan, setMealPlan] = useState<DayPlan[]>(() => {
+    const saved = localStorage.getItem('freshplan_plan');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persistence Effects
+  useEffect(() => {
+    localStorage.setItem('freshplan_pantry', JSON.stringify(pantryItems));
+  }, [pantryItems]);
+
+  useEffect(() => {
+    localStorage.setItem('freshplan_plan', JSON.stringify(mealPlan));
+  }, [mealPlan]);
+
+  // Handlers
   const handleAddItem = (item: PantryItem) => setPantryItems(prev => [...prev, item]);
   const handleAddItems = (items: PantryItem[]) => setPantryItems(prev => [...prev, ...items]);
   const handleRemoveItem = (id: string) => setPantryItems(prev => prev.filter(i => i.id !== id));
+  
+  const handleUpdateItem = (id: string, updates: Partial<PantryItem>) => {
+    setPantryItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
   const handleUpdatePlan = (plan: DayPlan[]) => setMealPlan(plan);
 
   const NavItem = ({ view, icon: Icon, label }: { view: View; icon: any; label: string }) => (
@@ -93,7 +117,8 @@ const App = () => {
             items={pantryItems} 
             onAddItem={handleAddItem}
             onAddItems={handleAddItems} 
-            onRemoveItem={handleRemoveItem} 
+            onRemoveItem={handleRemoveItem}
+            onUpdateItem={handleUpdateItem}
           />
         )}
         {activeView === 'planner' && (

@@ -41,7 +41,7 @@ export const identifyPantryItems = async (imageBase64: string, mimeType: string 
             },
           },
           {
-            text: "Identify the food items in this image. Estimate their quantity and a likely expiry date (YYYY-MM-DD) starting from today (assume today is May 15, 2024 for consistency if needed, or just use current date logic). Return a JSON array.",
+            text: "Identify the food items in this image. Estimate their quantity. Return a JSON array. Do NOT include any expiry dates.",
           },
         ],
       },
@@ -55,7 +55,6 @@ export const identifyPantryItems = async (imageBase64: string, mimeType: string 
               name: { type: Type.STRING },
               quantity: { type: Type.NUMBER },
               unit: { type: Type.STRING },
-              expiryDate: { type: Type.STRING, description: "YYYY-MM-DD format" },
               category: { type: Type.STRING },
             },
             required: ["name", "quantity", "unit", "category"],
@@ -68,6 +67,7 @@ export const identifyPantryItems = async (imageBase64: string, mimeType: string 
     return data.map((item: any, index: number) => ({
       ...item,
       id: `scanned-${Date.now()}-${index}`,
+      expiryDate: '' // Force empty to require manual entry
     }));
   } catch (error) {
     console.error("Error identifying items:", error);
@@ -83,7 +83,7 @@ export const suggestRecipes = async (pantryItems: PantryItem[]): Promise<Recipe[
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Suggest 3 creative recipes I can make mostly with these ingredients: ${ingredientsList}. 
-      Focus on minimizing waste. It's okay to assume basic staples like oil, salt, pepper, water.`,
+      Focus on minimizing waste. It's okay to assume basic staples like oil, salt, pepper, water. Provide clear step-by-step instructions.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -131,7 +131,7 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Create a 3-day meal plan (Breakfast, Lunch, Dinner) that uses these ingredients to reduce waste: ${ingredientsList}.
-      If ingredients are missing, assume I will buy them.`,
+      If ingredients are missing, assume I will buy them. Provide brief instructions and ingredients list for each recipe so I can cook them.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -150,6 +150,11 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                         description: { type: Type.STRING },
                         prepTimeMinutes: { type: Type.NUMBER },
                         calories: { type: Type.NUMBER },
+                        ingredients: {
+                          type: Type.ARRAY,
+                          items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
+                        },
+                        steps: { type: Type.ARRAY, items: { type: Type.STRING } }
                      }
                   },
                   lunch: {
@@ -159,6 +164,11 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                         description: { type: Type.STRING },
                         prepTimeMinutes: { type: Type.NUMBER },
                         calories: { type: Type.NUMBER },
+                        ingredients: {
+                          type: Type.ARRAY,
+                          items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
+                        },
+                        steps: { type: Type.ARRAY, items: { type: Type.STRING } }
                      }
                   },
                   dinner: {
@@ -168,6 +178,11 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
                         description: { type: Type.STRING },
                         prepTimeMinutes: { type: Type.NUMBER },
                         calories: { type: Type.NUMBER },
+                        ingredients: {
+                          type: Type.ARRAY,
+                          items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, amount: {type: Type.STRING} } }
+                        },
+                        steps: { type: Type.ARRAY, items: { type: Type.STRING } }
                      }
                   },
                 }
@@ -178,8 +193,6 @@ export const generateWeeklyPlan = async (pantryItems: PantryItem[]): Promise<Day
       }
     });
     
-    // Note: The schema above simplifies the Recipe object for the plan to save tokens, 
-    // in a real app we might want full recipe details or fetch them on demand.
     return JSON.parse(response.text || "[]");
   } catch (e) {
     console.error("Plan generation failed", e);

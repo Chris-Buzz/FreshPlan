@@ -1,61 +1,79 @@
 import React from 'react';
 import { PantryItem } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { Leaf, TrendingDown, AlertCircle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts';
+import { Clock, Leaf, TrendingUp } from 'lucide-react';
 
 interface DashboardViewProps {
   pantryItems: PantryItem[];
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ pantryItems }) => {
-  const expiringSoonCount = pantryItems.filter(i => {
+  // Real Data Calculations
+  const expiringCount = pantryItems.filter(i => {
       if(!i.expiryDate) return false;
       const diff = new Date(i.expiryDate).getTime() - new Date().getTime();
-      return diff < 3 * 24 * 60 * 60 * 1000;
+      return diff < 3 * 24 * 60 * 60 * 1000 && diff > 0;
   }).length;
 
-  // Mock Data for charts
+  const expiredCount = pantryItems.filter(i => {
+      if(!i.expiryDate) return false;
+      return new Date(i.expiryDate).getTime() < new Date().getTime();
+  }).length;
+
+  const activeCount = Math.max(0, pantryItems.length - expiredCount);
+  
+  // Estimate savings based on active items ($4.50 avg value per item)
+  const savedAmount = activeCount * 4.50;
+
+  // Chart Data 1: Waste Analysis (Active vs Expired)
   const wasteData = [
-    { name: 'Consumed', value: 85, color: '#10b981' },
-    { name: 'Wasted', value: 15, color: '#ef4444' },
+    { name: 'Consumed', value: activeCount || 1, color: '#10b981' }, // Fallback to 1 so chart isn't empty
+    { name: 'Wasted', value: expiredCount, color: '#ef4444' }
   ];
 
+  // Chart Data 2: Mock Spending Data (Visual placeholder as requested)
   const spendingData = [
-    { name: 'Week 1', amount: 120 },
-    { name: 'Week 2', amount: 95 },
-    { name: 'Week 3', amount: 110 },
-    { name: 'This Week', amount: 45 }, // Low because using pantry
+    { name: 'Week 1', amount: 145 },
+    { name: 'Week 2', amount: 120 },
+    { name: 'Week 3', amount: 160 },
+    { name: 'This Week', amount: 90 }
   ];
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 animate-in fade-in duration-500">
         <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
         
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-                    <AlertCircle className="w-4 h-4 text-orange-500" />
-                    Expiring
+        {/* Top Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start gap-4">
+                <div className="p-3 bg-orange-50 rounded-full shrink-0">
+                    <Clock className="w-6 h-6 text-orange-500" />
                 </div>
-                <div className="text-3xl font-bold text-gray-800">{expiringSoonCount}</div>
-                <div className="text-xs text-gray-400 mt-1">Items need attention</div>
+                <div>
+                    <div className="text-sm text-gray-500 font-medium">Expiring</div>
+                    <div className="text-3xl font-bold text-gray-800 mt-1">{expiringCount}</div>
+                    <div className="text-xs text-gray-400 mt-1">Items need attention</div>
+                </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-                    <Leaf className="w-4 h-4 text-emerald-500" />
-                    Saved
+
+            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start gap-4">
+                <div className="p-3 bg-emerald-50 rounded-full shrink-0">
+                    <Leaf className="w-6 h-6 text-emerald-600" />
                 </div>
-                <div className="text-3xl font-bold text-gray-800">$42</div>
-                <div className="text-xs text-gray-400 mt-1">By using pantry first</div>
+                <div>
+                    <div className="text-sm text-gray-500 font-medium">Saved</div>
+                    <div className="text-3xl font-bold text-gray-800 mt-1">${savedAmount.toFixed(0)}</div>
+                    <div className="text-xs text-gray-400 mt-1">By using pantry first</div>
+                </div>
             </div>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <h3 className="font-semibold text-gray-700 mb-4">Food Waste Analysis</h3>
-                <div className="h-64 w-full">
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Food Waste Analysis */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col min-h-[300px]">
+                <h3 className="text-gray-700 font-semibold mb-6">Food Waste Analysis</h3>
+                <div className="flex-1 relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
@@ -66,44 +84,60 @@ const DashboardView: React.FC<DashboardViewProps> = ({ pantryItems }) => {
                                 dataKey="value"
                             >
                                 {wasteData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
                                 ))}
                             </Pie>
-                            <Tooltip />
+                            <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                         </PieChart>
                     </ResponsiveContainer>
+                    {/* Center Label */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                         {/* Optional center text could go here */}
+                    </div>
                 </div>
-                <div className="flex justify-center gap-6 text-sm">
-                    {wasteData.map(d => (
-                        <div key={d.name} className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{backgroundColor: d.color}}></div>
-                            <span className="text-gray-600">{d.name}</span>
-                        </div>
-                    ))}
+                <div className="flex justify-center gap-6 mt-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        <span className="text-sm text-gray-600">Consumed</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span className="text-sm text-gray-600">Wasted</span>
+                    </div>
                 </div>
             </div>
 
-             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <h3 className="font-semibold text-gray-700 mb-4">Grocery Spending</h3>
-                <div className="h-64 w-full">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={spendingData}>
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                            <YAxis hide />
-                            <Tooltip cursor={{fill: '#f3f4f6'}} />
-                            <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
+            {/* Grocery Spending */}
+            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col min-h-[300px]">
+                <h3 className="text-gray-700 font-semibold mb-6">Grocery Spending</h3>
+                <div className="flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={spendingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <XAxis 
+                                dataKey="name" 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{fontSize: 11, fill: '#9ca3af'}} 
+                                dy={10}
+                            />
+                            <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                            <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
                         </BarChart>
-                     </ResponsiveContainer>
+                    </ResponsiveContainer>
                 </div>
             </div>
         </div>
 
-        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3">
-            <TrendingDown className="w-6 h-6 text-blue-600 shrink-0" />
+        {/* Optimization Tip */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+            <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
-                <h4 className="font-semibold text-blue-900">Optimization Tip</h4>
-                <p className="text-sm text-blue-700 mt-1">
-                    You have a lot of pasta. Consider "Pasta Primavera" for dinner to use up the expiring spinach!
+                <h4 className="text-blue-900 font-semibold text-sm">Optimization Tip</h4>
+                <p className="text-blue-700 text-sm mt-1">
+                    {expiringCount > 0 
+                        ? `You have items expiring soon. Prioritize using them in tonight's dinner to reduce waste!`
+                        : "Your pantry usage is efficient! Try buying in bulk for non-perishables to save more next week."
+                    }
                 </p>
             </div>
         </div>
