@@ -2,6 +2,7 @@
   "name": "FreshPlan AI",
   "description": "Smart meal planner and grocery optimizer that scans your pantry and suggests recipes to minimize waste.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ]
 }
